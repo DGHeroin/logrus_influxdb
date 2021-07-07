@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/Abramovic/logrus_influxdb"
-	"github.com/Sirupsen/logrus"
+	"github.com/DGHeroin/logrus_influxdb"
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
