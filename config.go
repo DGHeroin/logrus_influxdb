@@ -8,14 +8,12 @@ import (
 // Config handles InfluxDB configuration, Logrus tags and batching inserts to InfluxDB
 type Config struct {
     // InfluxDB Configurations
-    Host      string        `json:"influxdb_host"`
-    Port      int           `json:"influxdb_port"`
+    Address      string        `json:"influxdb_address"`
     Timeout   time.Duration `json:"influxdb_timeout"`
     Database  string        `json:"influxdb_database"`
     Org       string        `json:"influxdb_org"`
     Bucket    string        `json:"influxdb_bucket"`
     Token     string        `json:"influxdb_token"`
-    UseHTTPS  bool          `json:"influxdb_https"`
     Precision string        `json:"influxdb_precision"`
 
     // Enable syslog format for chronograf logviewer usage
@@ -41,11 +39,8 @@ type Config struct {
 
 // Set the default configurations
 func (c *Config) defaults() {
-    if c.Host == "" {
-        c.Host = defaultHost
-    }
-    if c.Port == 0 {
-        c.Port = defaultPort
+    if c.Address == "" {
+        c.Address = defaultAddress
     }
     if c.Timeout == 0 {
         c.Timeout = 100 * time.Millisecond

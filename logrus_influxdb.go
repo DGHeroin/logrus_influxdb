@@ -13,8 +13,7 @@ import (
 )
 
 var (
-    defaultHost          = "localhost"
-    defaultPort          = 8086
+    defaultAddress       = "localhost:8086"
     defaultDatabase      = "logrus"
     defaultBatchInterval = 5 * time.Second
     defaultMeasurement   = "logrus"
@@ -51,8 +50,7 @@ func newInfluxDB(config *Config) (hook *InfluxDBHook, err error) {
 
     config.defaults()
 
-    var client= newInfluxDBClient(config)
-
+    var client = newInfluxDBClient(config)
 
     // Make sure that we can connect to InfluxDB
     isReady, err := client.Ready(context.Background()) // if this takes more than 5 seconds then influxdb is probably down

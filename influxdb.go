@@ -8,17 +8,10 @@ import (
 )
 
 // Returns an influxdb client
-func  newInfluxDBClient(config *Config) influxdb.Client {
-    protocol := "http"
-    if config.UseHTTPS {
-        protocol = "https"
-    }
-    addr := fmt.Sprintf("%s://%s:%d", protocol, config.Host, config.Port)
-
-    return influxdb.NewClientWithOptions(addr, config.Token,
+func newInfluxDBClient(config *Config) influxdb.Client {
+    return influxdb.NewClientWithOptions(config.Address, config.Token,
         influxdb.DefaultOptions().SetBatchSize(20))
 }
-
 
 // queryDB convenience function to query the database
 func (hook *InfluxDBHook) queryDB(cmd string) (*api.QueryTableResult, error) {
