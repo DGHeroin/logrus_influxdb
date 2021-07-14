@@ -14,12 +14,9 @@ import (
 
 var (
     defaultAddress       = "localhost:8086"
-    defaultDatabase      = "logrus"
     defaultBatchInterval = 5 * time.Second
     defaultMeasurement   = "logrus"
     defaultBatchCount    = 200
-    defaultPrecision     = "ns"
-    defaultSyslog        = false
 )
 
 // InfluxDBHook delivers logs to an InfluxDB cluster.
@@ -29,8 +26,6 @@ type InfluxDBHook struct {
     precision, database, measurement string
     org, bucket                      string
     tagList                          []string
-    //batchP                           influxdb.BatchPoints
-    //batchP          *write.Point
     lastBatchUpdate time.Time
     batchInterval   time.Duration
     batchCount      int

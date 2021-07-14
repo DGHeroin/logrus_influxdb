@@ -45,9 +45,6 @@ func (c *Config) defaults() {
     if c.Timeout == 0 {
         c.Timeout = 100 * time.Millisecond
     }
-    if c.Database == "" {
-        c.Database = defaultDatabase
-    }
     if c.Token == "" {
         c.Token = os.Getenv("INFLUX_TOKEN")
     }
