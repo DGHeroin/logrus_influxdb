@@ -175,6 +175,7 @@ func (hook *InfluxDBHook) Fire(entry *logrus.Entry) (err error) {
         } else {
             // If passing a "message" field then it will be overridden by the entry Message
             entry.Data["message"] = entry.Message
+            defer delete(entry.Data, "message")
 
             // Set the level of the entry
             tags["level"] = entry.Level.String()

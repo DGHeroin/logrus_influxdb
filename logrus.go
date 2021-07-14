@@ -37,7 +37,6 @@ func getTag(d logrus.Fields, key string) (tag string, ok bool) {
     default:
         return "", false
     }
-    return "", false
 }
 
 // Try to return an http request
