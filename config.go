@@ -8,7 +8,7 @@ import (
 // Config handles InfluxDB configuration, Logrus tags and batching inserts to InfluxDB
 type Config struct {
     // InfluxDB Configurations
-    Address      string        `json:"influxdb_address"`
+    Address   string        `json:"influxdb_address"`
     Timeout   time.Duration `json:"influxdb_timeout"`
     Database  string        `json:"influxdb_database"`
     Org       string        `json:"influxdb_org"`
@@ -31,10 +31,10 @@ type Config struct {
 
     // Defaults
     Measurement string `json:"measurement"`
-
     // Batching
-    BatchInterval time.Duration `json:"batch_interval"` // Defaults to 5s.
-    BatchCount    int           `json:"batch_count"`    // Defaults to 200.
+    BatchInterval uint `json:"batch_interval"`   // Defaults to 5s.
+    BatchCount    uint `json:"batch_count"` // Defaults to 200.
+    MaxBufferLog  int  `json:"max_buffer_log"`
 }
 
 // Set the default configurations
@@ -57,10 +57,11 @@ func (c *Config) defaults() {
     if c.Measurement == "" {
         c.Measurement = defaultMeasurement
     }
-    if c.BatchInterval < 0 {
-        c.BatchInterval = defaultBatchInterval
+    if c.BatchCount <= 0 {
+        c.BatchCount = uint(defaultBatchCount)
     }
-    if c.BatchCount < 0 {
-        c.BatchCount = defaultBatchCount
+    if c.BatchInterval <= 0{
+        c.BatchInterval = uint(defaultBatchInterval)
     }
+
 }

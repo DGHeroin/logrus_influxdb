@@ -3,20 +3,19 @@ package logrus_influxdb
 import (
     "context"
     "fmt"
+    "github.com/DGHeroin/ringchan"
+    influxdb "github.com/influxdata/influxdb-client-go/v2"
     "github.com/influxdata/influxdb-client-go/v2/api/write"
+    "github.com/sirupsen/logrus"
     "os"
     "sync"
-    "time"
-
-    influxdb "github.com/influxdata/influxdb-client-go/v2"
-    "github.com/sirupsen/logrus"
 )
 
 var (
     defaultAddress       = "localhost:8086"
-    defaultBatchInterval = 5 * time.Second
     defaultMeasurement   = "logrus"
     defaultBatchCount    = 200
+    defaultBatchInterval = 200
 )
 
 // InfluxDBHook delivers logs to an InfluxDB cluster.
@@ -26,15 +25,14 @@ type InfluxDBHook struct {
     precision, database, measurement string
     org, bucket                      string
     tagList                          []string
-    lastBatchUpdate time.Time
-    batchInterval   time.Duration
-    batchCount      int
-    syslog          bool
-    facility        string
-    facilityCode    int
-    appName         string
-    version         string
-    minLevel        string
+    //batchCount                       int
+    syslog       bool
+    facility     string
+    facilityCode int
+    appName      string
+    version      string
+    minLevel     string
+    ch           *ringchan.RingChan
 }
 
 // NewInfluxDB returns a new InfluxDBHook.
@@ -54,28 +52,22 @@ func newInfluxDB(config *Config) (hook *InfluxDBHook, err error) {
     }
 
     hook = &InfluxDBHook{
-        client:        client,
-        database:      config.Database,
-        measurement:   config.Measurement,
-        tagList:       config.Tags,
-        batchInterval: config.BatchInterval,
-        batchCount:    config.BatchCount,
-        precision:     config.Precision,
-        syslog:        config.Syslog,
-        facility:      config.Facility,
-        facilityCode:  config.FacilityCode,
-        appName:       config.AppName,
-        version:       config.Version,
-        minLevel:      config.MinLevel,
-        org:           config.Org,
-        bucket:        config.Bucket,
+        client:       client,
+        database:     config.Database,
+        measurement:  config.Measurement,
+        tagList:      config.Tags,
+        precision:    config.Precision,
+        syslog:       config.Syslog,
+        facility:     config.Facility,
+        facilityCode: config.FacilityCode,
+        appName:      config.AppName,
+        version:      config.Version,
+        minLevel:     config.MinLevel,
+        org:          config.Org,
+        bucket:       config.Bucket,
+        ch:           ringchan.NewRingChan(10, config.MaxBufferLog),
     }
-
-    err = hook.autocreateDatabase()
-    if err != nil {
-        return nil, err
-    }
-
+    go hook.process()
     return hook, nil
 }
 
@@ -139,9 +131,7 @@ func (hook *InfluxDBHook) hasMinLevel(level string) bool {
     return true
 }
 
-// Fire adds a new InfluxDB point based off of Logrus entry
 func (hook *InfluxDBHook) Fire(entry *logrus.Entry) (err error) {
-
     if hook.hasMinLevel(entry.Level.String()) {
         measurement := hook.measurement
         if result, ok := getTag(entry.Data, "measurement"); ok {
@@ -153,7 +143,6 @@ func (hook *InfluxDBHook) Fire(entry *logrus.Entry) (err error) {
 
         if hook.syslog {
             hostname, err := os.Hostname()
-
             if err != nil {
                 return err
             }
@@ -173,21 +162,15 @@ func (hook *InfluxDBHook) Fire(entry *logrus.Entry) (err error) {
             data["timestamp"] = entry.Time.UnixNano()
             data["version"] = hook.version
         } else {
-            // If passing a "message" field then it will be overridden by the entry Message
-            entry.Data["message"] = entry.Message
-            defer delete(entry.Data, "message")
-
-            // Set the level of the entry
+            //entry.Data["message"] = entry.Message
+            data["message"] = entry.Message
             tags["level"] = entry.Level.String()
-            // getAndDel and getAndDelRequest are taken from https://github.com/evalphobia/logrus_sentry
             if logger, ok := getTag(entry.Data, "logger"); ok {
                 tags["logger"] = logger
             }
-
             for k, v := range entry.Data {
                 data[k] = v
             }
-
             for _, tag := range hook.tagList {
                 if tagValue, ok := getTag(entry.Data, tag); ok {
                     tags[tag] = tagValue
@@ -197,35 +180,34 @@ func (hook *InfluxDBHook) Fire(entry *logrus.Entry) (err error) {
         }
 
         pt := write.NewPoint(measurement, tags, data, entry.Time)
-
-        return hook.addPoint(pt)
+        hook.ch.In <- pt
     }
 
     return nil
 }
 
-func (hook *InfluxDBHook) addPoint(pt *write.Point) (err error) {
-    hook.Lock()
-    defer hook.Unlock()
-
+func (hook *InfluxDBHook) process() {
     client := hook.client
     writeAPI := client.WriteAPI(hook.org, hook.bucket)
-
-    writeAPI.WritePoint(pt)
-
-    writeAPI.Flush()
-    hook.lastBatchUpdate = time.Now().UTC()
-
-    // Return the write error (if any).
-    return err
+    for {
+        pt, ok := <-hook.ch.Out
+        if !ok {
+            break
+        }
+        writeAPI.WritePoint(pt.(*write.Point))
+    }
 }
 
-/* BEGIN BACKWARDS COMPATIBILITY */
-
-// NewInfluxDBHook /* DO NOT USE */ creates a hook to be added to an instance of logger and initializes the InfluxDB client
 func NewInfluxDBHook(config *Config, batching ...bool) (hook *InfluxDBHook, err error) {
     if len(batching) == 1 && batching[0] {
         config.BatchCount = 10
     }
     return newInfluxDB(config)
+}
+func newInfluxDBClient(config *Config) influxdb.Client {
+    return influxdb.NewClientWithOptions(config.Address, config.Token,
+        influxdb.DefaultOptions().
+            SetBatchSize(config.BatchCount).
+            SetFlushInterval(config.BatchInterval),
+    )
 }
